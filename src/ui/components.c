@@ -3083,6 +3083,8 @@ ComponentMsg component_help(const Model *model, k_Rect region, DrawBuffer *buf,
                   get_binding_string(MSG_MOVESONGUP, true),
                   get_binding_string(MSG_MOVESONGDOWN, true));
         HELP_LINE(_(" · Delete from Playlist: %s"), get_binding_string(MSG_REMOVE, true));
+        HELP_LINE(_(" · Open Current Song's Folder: %s"),
+                  get_binding_string(MSG_OPENFOLDER, false));
         HELP_LINE(_(" · Cycle Color Mode: %s"),
                   get_binding_string(MSG_CYCLECOLORMODE, false));
         HELP_LINE(_(" · Cycle Themes: %s"), get_binding_string(MSG_CYCLETHEMES, false));

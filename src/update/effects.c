@@ -366,6 +366,10 @@ void run_command(UpdateResult result)
                 sort_library();
                 break;
 
+        case CMD_OPEN_FOLDER:
+                highlight_current_song_in_folder();
+                break;
+
         case CMD_VIEW_CHANGED:
                 if (model->state.ui.chroma_started) {
                         chroma_shutdown();

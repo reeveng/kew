@@ -104,6 +104,7 @@ TBKeyBinding key_bindings[MAX_KEY_BINDINGS] = {
     {0, 'u', 0, MSG_UPDATELIBRARY, ""},
     {0, 'f', 0, MSG_MOVESONGUP, ""},
     {0, 'g', 0, MSG_MOVESONGDOWN, ""},
+    {0, 'e', 0, MSG_OPENFOLDER, ""},
 
     {TB_KEY_ENTER, 0, 0, MSG_ENQUEUE, ""},
     {TB_KEY_BACKSPACE, 0, 0, MSG_CLEARPLAYLIST, ""},
@@ -779,6 +780,7 @@ static const EventMap event_map[] = {
     {"crossfadequick", MSG_CROSSFADE_QUICK},
     {"crossfademedium", MSG_CROSSFADE_MEDIUM},
     {"crossfadeslow", MSG_CROSSFADE_SLOW},
+    {"openFolder", MSG_OPENFOLDER},
     {NULL, MSG_NONE} // Sentinel
 };
 

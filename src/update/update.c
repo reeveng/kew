@@ -776,6 +776,10 @@ UpdateResult update(Model *model, struct Msg *msg)
                 result.cmd.type = CMD_SORT_LIBRARY;
                 break;
 
+        case MSG_OPENFOLDER:
+                result.cmd.type = CMD_OPEN_FOLDER;
+                break;
+
         case MSG_PLAYLIST_ROW_SELECTED:
 
                 if (msg->chosen_row >= 0)

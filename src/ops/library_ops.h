@@ -62,6 +62,15 @@ void sort_library(void);
 void reset_sort_library(void);
 
 /**
+ * @brief Reveal the currently playing file in the desktop file manager.
+ *
+ * Asks the FileManager1 D-Bus interface to show the file itself, so the folder
+ * opens with the song already selected, and falls back to opening the
+ * containing directory with xdg-open where nothing answers.
+ */
+void highlight_current_song_in_folder(void);
+
+/**
  * @brief Mark all entries contained in a playlist as enqueued.
  *
  * Traverses the library tree and sets the enqueued flag for entries whose
