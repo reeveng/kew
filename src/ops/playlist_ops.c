@@ -1015,6 +1015,47 @@ void play_all_albums(void)
         mark_list_as_enqueued(library, playlist);
 }
 
+static pthread_mutex_t open_path_mutex = PTHREAD_MUTEX_INITIALIZER;
+static char open_path[KEW_PATH_MAX + 1];
+
+void request_open_path(const char *path)
+{
+        if (path == NULL)
+                return;
+
+        pthread_mutex_lock(&open_path_mutex);
+        c_strcpy(open_path, path, sizeof(open_path));
+        pthread_mutex_unlock(&open_path_mutex);
+}
+
+bool open_requested_path(void)
+{
+        char path[KEW_PATH_MAX + 1];
+
+        pthread_mutex_lock(&open_path_mutex);
+        c_strcpy(path, open_path, sizeof(path));
+        open_path[0] = '\0';
+        pthread_mutex_unlock(&open_path_mutex);
+
+        if (path[0] == '\0')
+                return false;
+
+        PlayList *playlist = get_playlist();
+
+        // Everything goes, whatever the clear-list setting says: a player told
+        // to open something is being told to play that and not to add to it.
+        stop_and_clear_current_song();
+        clear_playlist();
+        build_playlist_recursive(path, MUSIC_FILE_EXTENSIONS, playlist);
+
+        if (playlist->count == 0)
+                return false;
+
+        clear_and_play(playlist->head);
+
+        return true;
+}
+
 void play_command_with_playlist(int argc, char **argv)
 {
         PlayList *playlist = get_playlist();

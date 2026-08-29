@@ -200,6 +200,56 @@ get_desktop_icon_name(GDBusConnection *connection, const gchar *sender,
         return TRUE;
 }
 
+static void handle_open_uri(GDBusConnection *connection, const gchar *sender,
+                            const gchar *object_path,
+                            const gchar *interface_name,
+                            const gchar *method_name, GVariant *parameters,
+                            GDBusMethodInvocation *invocation,
+                            gpointer user_data)
+{
+        (void)connection;
+        (void)sender;
+        (void)object_path;
+        (void)interface_name;
+        (void)method_name;
+        (void)user_data;
+
+        const gchar *uri = NULL;
+        g_variant_get(parameters, "(&s)", &uri);
+
+        if (uri == NULL || uri[0] == '\0') {
+                g_dbus_method_invocation_return_dbus_error(
+                    invocation, "org.freedesktop.DBus.Error.InvalidArgs",
+                    "No URI");
+                return;
+        }
+
+        // A local path is accepted as it stands, so that a caller does not have
+        // to escape one only for this end to unescape it again.
+        gchar *path = NULL;
+
+        if (uri[0] == '/') {
+                path = g_strdup(uri);
+        } else {
+                GError *error = NULL;
+                path = g_filename_from_uri(uri, NULL, &error);
+
+                if (path == NULL) {
+                        g_dbus_method_invocation_return_dbus_error(
+                            invocation, "org.freedesktop.DBus.Error.InvalidArgs",
+                            error != NULL ? error->message : "Not a local file");
+                        g_clear_error(&error);
+                        return;
+                }
+        }
+
+        request_open_path(path);
+        g_free(path);
+
+        dispatch_msg((struct Msg){.type = MSG_OPEN_URI});
+        g_dbus_method_invocation_return_value(invocation, NULL);
+}
+
 static void handle_next(GDBusConnection *connection, const gchar *sender,
                         const gchar *object_path, const gchar *interface_name,
                         const gchar *method_name, GVariant *parameters,
@@ -414,6 +464,9 @@ static void handle_method_call(GDBusConnection *connection, const gchar *sender,
                 handle_set_position(connection, sender, object_path,
                                     interface_name, method_name, parameters,
                                     invocation, user_data);
+        } else if (g_strcmp0(method_name, "OpenUri") == 0) {
+                handle_open_uri(connection, sender, object_path, interface_name,
+                                method_name, parameters, invocation, user_data);
         } else if (g_strcmp0(method_name, "Raise") == 0) {
                 handle_raise(connection, sender, object_path, interface_name,
                              method_name, parameters, invocation, user_data);

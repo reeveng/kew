@@ -267,6 +267,26 @@ void play_all_albums(void);
  */
 void play_command_with_playlist(int argc, char **argv);
 
+/**
+ * @brief Remembers a path for the main loop to open.
+ *
+ * Called off the main thread, by MPRIS OpenUri. The path is copied, and the
+ * caller dispatches MSG_OPEN_URI for the loop to act on it.
+ *
+ * @param path A song or a directory.
+ */
+void request_open_path(const char *path);
+
+/**
+ * @brief Plays whatever request_open_path() last remembered.
+ *
+ * Clears the playlist, builds a new one from that path and starts it. Called on
+ * the main thread, by CMD_OPEN_PATH.
+ *
+ * @return true if something was played.
+ */
+bool open_requested_path(void);
+
 Node *choose_next_song(void);
 
 /**

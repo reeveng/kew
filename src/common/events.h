@@ -72,7 +72,8 @@ enum MsgType {
         MSG_TOGGLECROSSFADE,
         MSG_PLAY,
         MSG_MINICONTROLS_SET,
-        MSG_OPENFOLDER
+        MSG_OPENFOLDER,
+        MSG_OPEN_URI
 };
 
 typedef struct

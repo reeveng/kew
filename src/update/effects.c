@@ -370,6 +370,10 @@ void run_command(UpdateResult result)
                 highlight_current_song_in_folder();
                 break;
 
+        case CMD_OPEN_PATH:
+                open_requested_path();
+                break;
+
         case CMD_VIEW_CHANGED:
                 if (model->state.ui.chroma_started) {
                         chroma_shutdown();

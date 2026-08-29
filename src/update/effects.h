@@ -62,7 +62,8 @@ typedef enum {
         CMD_VIEW_CHANGED,
         CMD_CROSSFADE,
         CMD_TOGGLECROSSFADE,
-        CMD_OPEN_FOLDER
+        CMD_OPEN_FOLDER,
+        CMD_OPEN_PATH
 
 } CmdType;
 

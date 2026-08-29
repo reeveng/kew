@@ -780,6 +780,10 @@ UpdateResult update(Model *model, struct Msg *msg)
                 result.cmd.type = CMD_OPEN_FOLDER;
                 break;
 
+        case MSG_OPEN_URI:
+                result.cmd.type = CMD_OPEN_PATH;
+                break;
+
         case MSG_PLAYLIST_ROW_SELECTED:
 
                 if (msg->chosen_row >= 0)
