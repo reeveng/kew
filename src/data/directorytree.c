@@ -903,6 +903,16 @@ FileSystemEntry *read_tree_from_binary(
                 return NULL;
         }
 
+        // The offsets below are read straight out of the file, so the header
+        // has to be self-consistent before anything trusts them. A file that
+        // fails this is treated like a missing cache: the caller rescans.
+        if (header.entry_count == 0 || header.string_table_size == 0 ||
+            (uint64_t)header.root_full_path_offset + header.root_full_path_length >
+                (uint64_t)header.string_table_size) {
+                fclose(f);
+                return NULL;
+        }
+
         // Read disk entries
         FileSystemEntryDisk *disk_entries = malloc(sizeof(FileSystemEntryDisk) * header.entry_count);
         if (!disk_entries) {
@@ -916,8 +926,9 @@ FileSystemEntry *read_tree_from_binary(
                 return NULL;
         }
 
-        // Read string table
-        char *string_table = malloc(header.string_table_size);
+        // Read string table. The extra byte is always NUL, so a string that
+        // starts inside the table can never run off the end of it.
+        char *string_table = malloc((size_t)header.string_table_size + 1);
         if (!string_table) {
                 free(disk_entries);
                 fclose(f);
@@ -930,6 +941,8 @@ FileSystemEntry *read_tree_from_binary(
                 fclose(f);
                 return NULL;
         }
+
+        string_table[header.string_table_size] = '\0';
 
         fclose(f);
 
@@ -970,7 +983,9 @@ FileSystemEntry *read_tree_from_binary(
                 } else
                         n->is_enqueued = 0;
 
-                if (d->name_offset == UINT32_MAX)
+                // Covers both the UINT32_MAX "no name" sentinel and any
+                // offset that does not land inside the string table.
+                if (d->name_offset >= header.string_table_size)
                         n->name = strdup(""); // empty name
                 else
                         n->name = strdup(string_table + d->name_offset);
