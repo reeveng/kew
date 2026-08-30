@@ -463,12 +463,15 @@ char *get_settings_file_path(const char *dir, const char *filename)
         if (!filepath) {
                 perror("malloc");
                 quit();
+                return NULL;
         }
 
+        // quit() only raises the shutdown flag, it does not return control to
+        // the caller's caller, so the buffer has to stay valid and owned by
+        // the caller. snprintf always terminates, truncated or not.
         int written = snprintf(filepath, KEW_PATH_MAX, "%s/%s", dir, filename);
         if (written < 0 || written >= KEW_PATH_MAX) {
                 k_log("Error: filepath truncated.\n");
-                free(filepath);
                 quit();
         }
         return filepath;
@@ -1843,9 +1846,9 @@ void migrate_prefs_file(char *new_filepath)
         struct stat ofile = {0};
         if (stat(new_filepath, &nfile) == -1 && stat(prefs_file_old, &ofile) == 0) {
                 if (rename(prefs_file_old, new_filepath) != 0) {
+                        // Do not free here: quit() returns, and control falls
+                        // through to the frees at the end of the function.
                         perror("rename");
-                        free(prefs_file_old);
-                        free(prefs_dir);
                         quit();
                 }
         }
@@ -1929,8 +1932,9 @@ void get_prefs(AppSettings *settings, UISettings *ui)
         struct stat st = {0};
         if (stat(configdir, &st) == -1) {
                 if (create_directory(configdir) != 1) {
+                        // configdir stays live: it is used below and freed at
+                        // the end, and quit() returns rather than exiting.
                         perror("mkdir");
-                        free(configdir);
                         quit();
                 }
         }
