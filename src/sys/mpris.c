@@ -600,26 +600,26 @@ static gboolean get_shuffle(GDBusConnection *connection, const gchar *sender,
         return TRUE;
 }
 
-// Convert a filesystem cover path to a properly escaped file:// URI for
-// mpris:artUrl
-static gchar *cover_art_path_to_uri(const char *cover_art_path)
+// Convert a filesystem path to a properly escaped file:// URI, for
+// mpris:artUrl and xesam:url
+static gchar *path_to_uri(const char *path)
 {
-        if (!cover_art_path || cover_art_path[0] == '\0')
+        if (!path || path[0] == '\0')
                 return NULL;
 
         GError *error = NULL;
-        gchar *uri = g_filename_to_uri(cover_art_path, NULL, &error);
+        gchar *uri = g_filename_to_uri(path, NULL, &error);
         if (uri)
                 return uri;
 
         if (error) {
-                g_debug("cover_art_path_to_uri: %s", error->message);
+                g_debug("path_to_uri: %s", error->message);
                 g_error_free(error);
         }
 
         // Fallback for absolute Unix paths if g_filename_to_uri fails
-        if (cover_art_path[0] == '/')
-                return g_strdup_printf("file://%s", cover_art_path);
+        if (path[0] == '/')
+                return g_strdup_printf("file://%s", path);
 
         return NULL;
 }
@@ -673,7 +673,7 @@ static gboolean get_metadata(GDBusConnection *connection, const gchar *sender,
                     g_variant_new_string(current_song_data->metadata->date));
 
                 gchar *coverArtUrl =
-                    cover_art_path_to_uri(current_song_data->cover_art_path);
+                    path_to_uri(current_song_data->cover_art_path);
                 if (coverArtUrl) {
                         g_variant_builder_add(&metadata_builder, "{sv}",
                                               "mpris:artUrl",
@@ -684,6 +684,17 @@ static gboolean get_metadata(GDBusConnection *connection, const gchar *sender,
                                               "mpris:artUrl",
                                               g_variant_new_string(""));
                 }
+
+                // The file itself, which is the one thing about a song a
+                // client cannot work out from the rest of this: two songs can
+                // share a title, an artist and an album, and a client that
+                // wants to show this one where it lives has nothing else to go
+                // on.
+                gchar *songUrl = path_to_uri(current_song_data->file_path);
+                g_variant_builder_add(&metadata_builder, "{sv}", "xesam:url",
+                                      g_variant_new_string(songUrl ? songUrl : ""));
+                if (songUrl)
+                        g_free(songUrl);
 
                 g_variant_builder_add(
                     &metadata_builder, "{sv}", "mpris:trackid",
@@ -708,6 +719,8 @@ static gboolean get_metadata(GDBusConnection *connection, const gchar *sender,
                                       "xesam:contentCreated",
                                       g_variant_new_string(""));
                 g_variant_builder_add(&metadata_builder, "{sv}", "mpris:artUrl",
+                                      g_variant_new_string(""));
+                g_variant_builder_add(&metadata_builder, "{sv}", "xesam:url",
                                       g_variant_new_string(""));
                 g_variant_builder_add(
                     &metadata_builder, "{sv}", "mpris:trackid",
@@ -1384,12 +1397,23 @@ void emit_metadata_changed(const gchar *title, const gchar *artist,
         g_variant_builder_add(&metadata_builder, "{sv}", "xesam:album",
                               g_variant_new_string(album));
 
-        coverArtUrl = cover_art_path_to_uri(cover_art_path);
+        coverArtUrl = path_to_uri(cover_art_path);
         if (coverArtUrl) {
                 g_variant_builder_add(&metadata_builder, "{sv}", "mpris:artUrl",
                                       g_variant_new_string(coverArtUrl));
                 g_debug("Cover art URL added: %s", coverArtUrl);
                 g_free(coverArtUrl);
+        }
+
+        // The same as the property says: the file this song is.
+        if (current_song != NULL) {
+                gchar *songUrl = path_to_uri(current_song->song.file_path);
+                if (songUrl) {
+                        g_variant_builder_add(&metadata_builder, "{sv}",
+                                              "xesam:url",
+                                              g_variant_new_string(songUrl));
+                        g_free(songUrl);
+                }
         }
 
         g_variant_builder_add(&metadata_builder, "{sv}", "mpris:trackid",
