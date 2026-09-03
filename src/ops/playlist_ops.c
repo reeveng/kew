@@ -1075,12 +1075,27 @@ bool open_requested_path(void)
         // is said. The old playlist goes either way -- opening something is
         // starting a new list, not adding to the one that was playing.
         //
-        // Shuffling is the player's own setting: shuffled, the library falls in
-        // behind the song asked for and every other song plays once before any
-        // of them plays twice; in order, the song is played where it stands and
-        // what is around it in the library is what comes next.
+        // Shuffling is the player's own setting, and it is only ever the order
+        // the same songs come in: shuffled, the library falls in behind the
+        // song asked for and every other song plays once before any of them
+        // plays twice; in order, the song is played where it stands and what is
+        // around it in the library is what comes next. Either way it is the
+        // whole library that plays.
+        //
+        // Which is why both lists are filled here. The player holds two: the
+        // one it plays from, and the unshuffled one it keeps so that shuffling
+        // can be turned off again -- `toggle_shuffle` restores the playing list
+        // from that one. `clear_playlist` above emptied it along with the
+        // other, so a list built into only the playing one leaves the two
+        // disagreeing about what is even enqueued, and the disagreement does
+        // not show until shuffle is switched: the library is copied back over
+        // by an empty list and the song playing is left with nothing after it,
+        // which turning shuffle on again cannot undo because there is by then
+        // nothing left to shuffle. The copy is taken before the shuffle, so
+        // what is kept is the order the library is in.
         if (!is_directory(path)) {
                 FileSystemEntry *library = get_library();
+                Model *model = get_model();
 
                 create_play_list_from_file_system_entry(library, playlist,
                                                         MAX_FILES);
@@ -1088,6 +1103,9 @@ bool open_requested_path(void)
                 Node *asked = node_holding(playlist, path);
 
                 if (asked != NULL) {
+                        deep_copy_list(playlist,
+                                       &(model->unshuffled_playlist));
+
                         if (is_shuffle_enabled())
                                 shuffle_playlist_starting_from_song(playlist,
                                                                     asked);
@@ -1108,6 +1126,10 @@ bool open_requested_path(void)
 
         if (playlist->count == 0)
                 return false;
+
+        // The same reason as above: the list shuffling would be turned off back
+        // onto has to hold these songs and not the ones that were cleared.
+        deep_copy_list(playlist, &(get_model()->unshuffled_playlist));
 
         clear_and_play(playlist->head);
 
