@@ -375,39 +375,34 @@ void toggle_shuffle(Model *model)
 
         } else if (model->playlist && model->unshuffled_playlist) {
 
-                char *path = NULL;
+                // Put back into the order the library is in, by relinking the
+                // nodes that are already here rather than by copying the
+                // unshuffled list over the top of them.
+                //
+                // The difference is not tidiness. A copy frees every node in
+                // this list first, and the song playing is one of them: the
+                // thread that answers the bus reads it several times a second,
+                // and it read freed memory and took the player down mid-song.
+                // Reordering touches only the links, so the song playing stays
+                // the song playing and every pointer anybody holds stays good.
+                pthread_mutex_lock(&(model->playlist->mutex));
 
-                if (model->playlist && model->unshuffled_playlist) {
+                reorder_playlist_like(model->playlist,
+                                      model->unshuffled_playlist);
 
-                        pthread_mutex_lock(&(model->playlist->mutex));
-
-                        int id = -1;
-                        if (current)
-                                id = current->id;
-
-                        current = NULL;
-
-                        deep_copy_list(model->unshuffled_playlist, &(model->playlist));
-
-                        if (id >= 0 && current == NULL)
-                                current = find_selected_entry_by_id(model->playlist, id);
-
-                        pthread_mutex_unlock(&(model->playlist->mutex));
-                }
-
-                if (current != NULL) {
-                        path = strdup(current->song.file_path);
-
-                        if (path != NULL) {
-                                set_current_song(find_path_in_playlist(path, model->playlist));
-                                free(path);
-                        }
-                }
+                pthread_mutex_unlock(&(model->playlist->mutex));
 
                 emit_boolean_property_changed("Shuffle", FALSE);
         }
 
+        // Either branch above has just reordered the list, so whatever the
+        // player had worked out as the song after this one was worked out
+        // against an order that is gone. `reshuffle_playlist` says so when it
+        // reorders; this says so for the same reason, and without it the song
+        // playing is the last one that plays: next is asked for, the stale
+        // answer is nothing, and nothing is what happens.
         ps->loadedNextSong = false;
+        ps->nextSongNeedsRebuilding = true;
         set_next_song(NULL);
 
         set_dirty(DIRTY_PLAYLIST | DIRTY_LIBRARY | DIRTY_FOOTER);

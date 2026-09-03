@@ -285,6 +285,98 @@ void shuffle_playlist(PlayList *playlist)
         free(nodes);
 }
 
+// A song and the node holding it, so that the nodes of one list can be looked
+// up quickly by what song they hold.
+//
+// The key is the file path and not the node id. Ids are a list's own numbering
+// and are handed out again whenever a list is rebuilt, so the same song is a
+// different number in two lists and two songs can share one: matching on them
+// silently pairs up the wrong songs. The path is what a song actually is.
+struct song_at {
+        const char *path;
+        Node *node;
+};
+
+static int by_path(const void *a, const void *b)
+{
+        const char *left = ((const struct song_at *)a)->path;
+        const char *right = ((const struct song_at *)b)->path;
+
+        if (left == NULL || right == NULL)
+                return (left != NULL) - (right != NULL);
+
+        return strcmp(left, right);
+}
+
+void reorder_playlist_like(PlayList *playlist, const PlayList *order)
+{
+        if (playlist == NULL || order == NULL || playlist->count <= 1)
+                return;
+
+        if ((size_t)playlist->count > SIZE_MAX / sizeof(struct song_at))
+                return;
+
+        struct song_at *held = malloc(playlist->count * sizeof(struct song_at));
+        Node **placed = malloc(playlist->count * sizeof(Node *));
+
+        if (held == NULL || placed == NULL) {
+                free(held);
+                free(placed);
+                return;
+        }
+
+        int n = 0;
+        for (Node *node = playlist->head; node != NULL && n < playlist->count;
+             node = node->next) {
+                held[n].path = node->song.file_path;
+                held[n].node = node;
+                n++;
+        }
+
+        qsort(held, n, sizeof(struct song_at), by_path);
+
+        int put = 0;
+        for (const Node *want = order->head; want != NULL && put < n;
+             want = want->next) {
+                struct song_at key = {want->song.file_path, NULL};
+                struct song_at *found =
+                    bsearch(&key, held, n, sizeof(struct song_at), by_path);
+
+                // A song the reference names more than once, or one bsearch
+                // lands on the second copy of, is taken from wherever in the
+                // run of equal paths a node is still going spare.
+                while (found != NULL && found->node == NULL &&
+                       found + 1 < held + n && by_path(found, found + 1) == 0)
+                        found++;
+
+                if (found != NULL && found->node != NULL) {
+                        placed[put++] = found->node;
+                        found->node = NULL;
+                }
+        }
+
+        // Whatever the reference did not name keeps a place at the end. The two
+        // lists should hold the same songs, and if they ever do not, a song is
+        // better last than dropped.
+        for (int i = 0; i < n && put < n; i++) {
+                if (held[i].node != NULL)
+                        placed[put++] = held[i].node;
+        }
+
+        if (put == n) {
+                playlist->head = placed[0];
+                playlist->tail = placed[n - 1];
+
+                for (int i = 0; i < n; i++) {
+                        placed[i]->next = (i < n - 1) ? placed[i + 1] : NULL;
+                        placed[i]->prev = (i > 0) ? placed[i - 1] : NULL;
+                }
+        }
+
+        free(held);
+        free(placed);
+}
+
 void insert_as_first(Node *current_song, PlayList *playlist)
 {
         if (current_song == NULL || playlist == NULL) {

@@ -137,6 +137,23 @@ void empty_playlist(PlayList *list);
 void shuffle_playlist(PlayList *playlist);
 
 /**
+ * @brief Relinks a playlist into the order another playlist gives.
+ *
+ * The nodes already in @p playlist are relinked; none is freed and none is
+ * allocated, so every pointer into the list stays good. Songs are matched by
+ * id, and any the reference does not name are left at the end rather than
+ * dropped.
+ *
+ * @param playlist Pointer to the playlist to reorder.
+ * @param order    Pointer to the playlist whose order is wanted.
+ *
+ * @note This is the counterpart of shuffle_playlist, and exists because the
+ *       song playing is a node in the list and other threads are reading it:
+ *       rebuilding the list by copy frees that node under them.
+ */
+void reorder_playlist_like(PlayList *playlist, const PlayList *order);
+
+/**
  * @brief Shuffles the playlist while keeping a specific song first.
  *
  * @param playlist Pointer to the playlist.
