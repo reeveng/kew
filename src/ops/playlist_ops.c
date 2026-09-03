@@ -1018,6 +1018,26 @@ void play_all_albums(void)
 static pthread_mutex_t open_path_mutex = PTHREAD_MUTEX_INITIALIZER;
 static char open_path[KEW_PATH_MAX + 1];
 
+/**
+ * @brief The node in a playlist holding this file, or NULL.
+ *
+ * By path rather than by id: what comes in over MPRIS is a file, and the ids
+ * belong to a playlist that is built again every time one is opened.
+ */
+static Node *node_holding(PlayList *playlist, const char *path)
+{
+        if (playlist == NULL || path == NULL)
+                return NULL;
+
+        for (Node *node = playlist->head; node != NULL; node = node->next) {
+                if (node->song.file_path != NULL &&
+                    strcmp(node->song.file_path, path) == 0)
+                        return node;
+        }
+
+        return NULL;
+}
+
 void request_open_path(const char *path)
 {
         if (path == NULL)
@@ -1046,6 +1066,44 @@ bool open_requested_path(void)
         // to open something is being told to play that and not to add to it.
         stop_and_clear_current_song();
         clear_playlist();
+
+        // A song is played out of the whole library rather than on its own. A
+        // playlist of one song is a player with nowhere to go: next and
+        // previous do nothing, the song ends and the evening ends with it, and
+        // the caller has no way to say "this one, and then everything else"
+        // because there is nothing in MPRIS to say it with. So this is where it
+        // is said. The old playlist goes either way -- opening something is
+        // starting a new list, not adding to the one that was playing.
+        //
+        // Shuffling is the player's own setting: shuffled, the library falls in
+        // behind the song asked for and every other song plays once before any
+        // of them plays twice; in order, the song is played where it stands and
+        // what is around it in the library is what comes next.
+        if (!is_directory(path)) {
+                FileSystemEntry *library = get_library();
+
+                create_play_list_from_file_system_entry(library, playlist,
+                                                        MAX_FILES);
+
+                Node *asked = node_holding(playlist, path);
+
+                if (asked != NULL) {
+                        if (is_shuffle_enabled())
+                                shuffle_playlist_starting_from_song(playlist,
+                                                                    asked);
+
+                        mark_list_as_enqueued(library, playlist);
+                        clear_and_play(asked);
+
+                        return true;
+                }
+
+                // Not in the library -- a file somebody handed us from
+                // somewhere else. It is played on its own, which is all that
+                // can honestly be done with it.
+                clear_playlist();
+        }
+
         build_playlist_recursive(path, MUSIC_FILE_EXTENSIONS, playlist);
 
         if (playlist->count == 0)
